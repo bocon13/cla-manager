@@ -223,7 +223,30 @@ function Github (appId, privateKey, secret, db) {
       })
       .catch(console.error)
 
-    return Promise.all([statusPromise, commentPromise])
+    let labelPromise = () => {}
+    // Add CLA labels to PINS PRs.
+    if (pr.base.repo.owner.login === 'pins') {
+      const labelToAdd = status.state === 'success' ? 'cla:yes' : 'cla:no'
+      const labelToRemove = status.state !== 'success' ? 'cla:yes' : 'cla:no'
+      // TODO(bocon): list labels to see if we need to do anything
+      labelPromise = octokit.issues
+        .addLabels({
+          owner: pr.base.repo.owner.login,
+          repo: pr.base.repo.name,
+          issue_number: pr.number,
+          labels: [labelToAdd]
+        })
+        .catch(console.error) // TODO: duplicate is okay
+        .removeLabel({
+          owner: pr.base.repo.owner.login,
+          repo: pr.base.repo.name,
+          issue_number: pr.number,
+          name: labelToRemove
+        })
+        .catch(console.err) // TODO: not found is okay
+    }
+
+    return Promise.all([statusPromise, commentPromise, labelPromise])
       .catch(console.error)
   }
 
